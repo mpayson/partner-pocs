@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Indoor Reality POC</title>
+  <link rel="stylesheet" href="https://js.arcgis.com/4.6/esri/css/main.css">
+  <script src="https://js.arcgis.com/4.6/"></script>
+  
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://s3-us-west-1.amazonaws.com/patterns.esri.com/files/calcite-web/1.0.0-rc.6/css/calcite-web.min.css">
+
+  <script type="text/javascript" src="layerconfig.js"></script>
+
+  <script>
+    require([
+      "esri/views/SceneView",
+      "esri/WebScene",
+      "esri/tasks/support/Query",
+      "esri/tasks/QueryTask",
+      "esri/widgets/LayerList",
+      "esri/widgets/Home",
+      "esri/widgets/Expand",
+      "dojo/dom-construct",
+      "dojo/dom-class",
+      "dojo/dom-attr",
+      "dojo/query",
+      "dojo/on",
+      "dojo/dom",
+      "dojo/domReady!"
+    ], function(
+      SceneView, WebScene, Query, QueryTask, LayerList, Home,
+      Expand, domConstruct, domClass, domAttr, query, on, dom
+    ) {
+
+      // load webscene by ID
+      let scene = new WebScene({
+        portalItem: { 
+          id: "3eea1a96297e4287b958e934806d10d5"
+        }
+      });
+
+      // construct a scene view and adjust constraints to go underground
+      let view = new SceneView({
+        map: scene,
+        container: "view-div",
+        viewingMode: "local",
+        constraints: {
+          collision: {
+            enabled: false
+          },
+          tilt: {
+            max: 179.99
+          }
+        }
+      });
+
+      // Create the side-panel of slides for scene bookmarks
+      // For implementation details, see:
+      // https://developers.arcgis.com/javascript/latest/sample-code/sandbox/index.html?sample=webscene-slides
+      function createSlideUI(slide, placement) {
+        let position = placement ? placement : "last";
+        let slideElement = domConstruct.create("div", {
+          id: slide.id,
+          className: "slide"
+        });
+        domConstruct.place(slideElement, "slides-div", position);
+        domConstruct.create("div", {
+          textContent: slide.title.text,
+          className: "title font-size--1"
+        }, slideElement);
+        domConstruct.create("img", {
+          src: slide.thumbnail.url,
+          title: slide.title.text
+        }, slideElement);
+        on(slideElement, "click", function() {
+          query(".slide").forEach(function(node) {
+            domClass.remove(node, "active");
+          });
+          domClass.add(slideElement, "active");
+          slide.applyTo(view);
+        });
+      }
+
+      let highlight
+
+      view.then(function() {
+
+        // build slides once view has loaded
+        const slides = scene.presentation.slides
+        slides.forEach(createSlideUI)
+
+        // make side-panel divs visible once layer has loaded
+        dom.byId("options-div").style.visibility = "visible"
+        dom.byId("slides-div").style.visibility = "visible"
+
+        // query pose layer so can get attributes when clicked
+        let poseLyr = scene.layers.find(function(l) {
+          return l.title === "Poses";
+        });
+        poseLyr.outFields = ["*"]
+
+        // when pose clicked, open Indoor Reality viewer for corresponding attributes
+        view.whenLayerView(poseLyr)
+          .then(poseLyrView => {
+            view.on("double-click", event => {
+              const screenPoint = {
+                x: event.x,
+                y: event.y
+              }
+              view.hitTest(screenPoint)
+                .then( response => {
+                  if(!response.results[0].graphic) return;
+                  event.stopPropagation()
+                  const atrs = response.results[0].graphic.attributes
+
+                  if(highlight){
+                    highlight.remove()
+                  }
+                  highlight = poseLyrView.highlight([atrs.OBJECTID])
+
+                  const id = atrs.acquisitionId
+                  const pose = atrs.poseId
+                  const url = "http://esri.indoorreality.com/esri-viewer/" + id +"/" + pose
+                  
+                  domAttr.set('iframe', 'src', url)
+                  domClass.remove("if-div", "hidden")
+                })
+            })
+          })
+      })
+
+      on(dom.byId("if-close"), "click", () => {
+        domClass.add("if-div", "hidden")
+        if(highlight){
+          highlight.remove()
+        }
+      })
+
+      // get the opacity for a given layer at a given scale
+      function getOpacity(scale, title, layerConfig){
+        if(!layerConfig[title] || !layerConfig[title].opcRange){
+          return null
+        }
+        const range = layerConfig[title].opcRange
+        const opc = (scale - range[1])/(range[0] - range[1])
+        return Math.min(Math.max(opc, 0), 1)
+      }
+
+      let scaleVisSet = new Set()
+      // when scale changes, adjust all the layer opacities
+      let viewHandle = view.watch("scale", (newVal) => {
+        scene.layers.forEach((lyr) => {
+          const title = lyr.title
+          const opc = getOpacity(view.scale, title, layerConfig)
+          if(opc === null) return;
+          if(opc < 0.01){
+            lyr.visible = false
+            lyr.listMode = "hide"
+            scaleVisSet.add(title)
+          }
+          else{
+            //only show if previously hidden by opacity value
+            if(scaleVisSet.has(title)){
+              lyr.visible = true
+              lyr.listMode = "show"
+              scaleVisSet.delete(title)
+            }
+            lyr.opacity = opc
+          }
+        })
+      })
+
+      // filter to specific floor when widget clicked
+      function showFloors(evt) {
+        let floorQuery = evt.target.value;
+        scene.layers.forEach(lyr => {
+          const config = layerConfig[lyr.title]
+          if (config && config.hasFloorAtr) {
+            lyr.definitionExpression = floorQuery;
+          }
+        });
+      }
+      on(dom.byId("floorSelect"), "change", showFloors);
+
+      // control only one expanded widget at a time
+      let activeExpand = null
+      function setActiveExpand(nV, oV, expProp, expObj){
+        if(nV === true && expObj !== activeExpand){
+          activeExpand.expanded = false
+          activeExpand = expObj
+        }
+      }
+
+      // configure widgets
+      let slideExpand = new Expand({
+        view: view,
+        content: dom.byId("slides-div"),
+        expandIconClass: "esri-icon-media",
+        expanded: true
+      })
+      activeExpand = slideExpand // slide widget is first active
+
+      let layerList = new LayerList({
+        view: view,
+        container: document.createElement("div")
+      });
+      let listExpand = new Expand({
+        view: view,
+        content: layerList.container,
+        expandIconClass: "esri-icon-layer-list"
+      });
+      let filterExpand = new Expand({
+        view: view,
+        content: dom.byId("options-div"),
+        expandIconClass: "esri-icon-filter"
+      });
+      
+      [slideExpand, listExpand, filterExpand].forEach((exp) =>
+        exp.watch("expanded", setActiveExpand)
+      )
+
+      let homeBtn = new Home({
+        view: view
+      });
+
+      view.ui.add([slideExpand, listExpand, filterExpand, homeBtn], "top-right");
+    });
+  </script>
+</head>
+
+<body>
+  <div id="view-div"></div>
+  <div id="options-div">
+    <div><b>Filter Interior Floor:</b>
+      <select id="floorSelect">
+        <option value="1=1">All</option>
+        <option value="Floor = -1">-1</option>
+        <option value="Floor = 1">1</option>
+        <option value="Floor = 2">2</option>
+        <option value="Floor = 3">3</option>
+        <option value="Floor = 4">4</option>
+        <option value="Floor = 5">5</option>
+      </select>
+    </div>
+  </div>
+  <div id="slides-div"></div>
+  <div id="if-div" class="hidden">
+    <button id="if-close" class="btn btn-white icon-ui-close right icon-ui-flush"></button>
+    <iframe id="iframe" style="width:100%; height:100%; border:none;"/>
+  </div>
+</body>
+
+</html>
