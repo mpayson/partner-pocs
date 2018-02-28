@@ -28,6 +28,11 @@
           name: 'cedar',
           location: 'https://unpkg.com/arcgis-cedar/dist/',
           main: 'cedar.min'
+        },
+        {
+          name: 'calcite',
+          location: 'https://s3-us-west-1.amazonaws.com/patterns.esri.com/files/calcite-web/1.0.0-rc.8/js/',
+          main: 'calcite-web.min'
         }
       ]
     };
@@ -46,25 +51,42 @@
     }
     #panel {
       width: 50vw;
-      height: 40vh;
+      height: 45vh;
       position: absolute;
       z-index: 400;
       bottom: 20px;
       left: 15px;
       background-color: white;
-      box-shadow: 1px 1px 1px 1px #ccc;
-    }
-    #textContainer {
-      padding: 5px;
+      box-shadow: 1px 1px 2px 2px #ccc;
     }
     #chartContainer {
       height: 80%;
       width: 100%;
+      margin: 5px;
     }
-    #loaderContainer {
-      height: 30px;
-      width: 30px;
+    #pinButton{
+      padding: 5px;
     }
+    .headerDivider{
+      margin-left: 20px !important;
+    }
+    .headerContainer{
+      width: 100%;
+      text-align: center;
+      margin: auto;
+      border-bottom: 1px solid lightgray;
+    }
+    .headerContent{
+      margin: 5px;
+      display: inline;
+    }
+    select {
+      border:none;
+      outline:none;
+      box-shadow: none;
+      -webkit-appearance: none;
+    }
+  
   </style>
   <script type="text/javascript" src="utils.js"></script>
   <script>
@@ -76,10 +98,21 @@
       "esri/renderers/smartMapping/creators/opacity",
       "esri/widgets/Legend",
       "cedar",
+      "calcite",
       "dojo/html",
+      "dojo/dom-class",
+      "dojo/dom",
+      "dojo/on",
       "dojo/domReady!"
     ],
-    function(Map, MapView, FeatureLayer, colorRendererCreator, opacityVariableCreator, Legend, Cedar, html) {
+    function(Map, MapView, FeatureLayer, colorRendererCreator, opacityVariableCreator, Legend, Cedar, Calcite, html, domClass, dom, on) {
+      Calcite.init();
+      let state = {
+        hitTestPromise: null,
+        prevFID: null,
+        pinnedLoc: null,
+        highlight: null
+      }
 
       const basemap = "gray-vector";
       const blockLyrUrl = "https://services.arcgis.com/q7zPNeKmTWeh7Aor/arcgis/rest/services/Enriched%20Safegraph%20POC%20Blocks%202/FeatureServer/0";
@@ -94,12 +127,25 @@
       const blockLyr = new FeatureLayer({
         url: blockLyrUrl,
         renderer: createRenderer('total', 0, 249)
+        // outFields: ["*"]
       });
+
+      const pinAction = {
+        title: "Pin",
+        id: "pin",
+        className: "esri-icon-map-pin"
+      };
 
       const locLyr = new FeatureLayer({
         portalItem: {
           id: "19eb2a2ba77a45c786bd370bff472989"
-        }
+        },
+        popupTemplate: {
+          title: "{location_i}",
+          content: "<p>{full_addre}</p>",
+          actions: [pinAction],
+          overwriteActions: true
+        },
       }); 
 
       const map = new Map({
@@ -116,51 +162,94 @@
         },        
       });
 
-      view.when(() => {
+      const onUpdateLocId = (locId, renderMin=0, renderMax=10) => {
+        blockLyr.renderer = createRenderer(locId, renderMin, renderMax);
+        html.set(dojo.byId("textContainer"), locId);
+        chart.dataset = createCatDataset(blockLyrUrl, 'TSEGNAME', 'Tapestry Segment', locId);
+        chart.update()
+      }
+
+      const onPin = (f, lyrView) => {
+        if(state.highlight){
+          state.highlight.remove();
+        }
+        state.highlight = lyrView.highlight(f);
+        state.pinnedLoc = f.attributes.location_i;
+        view.popup.close();
+        domClass.remove("pinButton", "btn-disabled");
+        domClass.add("pinButton", "icon-ui-red")
+        onUpdateLocId(state.pinnedLoc);
+      }
+
+      const onOffPin = () => {
+        if(state.highlight){
+          state.highlight.remove();
+        }
+        onUpdateLocId('total', 0, 250);
+        domClass.remove("pinButton", "icon-ui-red");
+        domClass.add("pinButton", "btn-disabled");
+      }
+
+      on(dom.byId("pinButton"), "click", () => {
+        onOffPin()
+      })
+
+      view.whenLayerView(locLyr).then(locLyrView => {
+
         locLyr.queryExtent().then(res => {
           view.goTo(res.extent);
         }).catch(e => {
           console.log(e)
         })
 
-        let hitTestPromise;
-        let prevGraphic;
-
         view.on("pointer-move", evt => {
-          if (hitTestPromise) {
-            hitTestPromise.cancel();
+          if(state.pinnedLoc){
+            return;
           }
-          hitTestPromise = view.hitTest(evt.x, evt.y)
+          if (state.hitTestPromise) {
+            state.hitTestPromise.cancel();
+          }
+          state.hitTestPromise = view.hitTest(evt.x, evt.y)
             .then(hit => {
-              hitTestPromise = null;
+              state.hitTestPromise = null;
               let res = hit.results.filter(r => r.graphic.layer === locLyr);
               if(res.length){
                 const graphic = res[0].graphic;
-                if (graphic === prevGraphic){
+                if (graphic.attributes.FID === state.prevFID){
                   return;
                 }
-                prevGraphic = graphic;
+                if(state.highlight){
+                  state.highlight.remove();
+                }
+                state.highlight = locLyrView.highlight(graphic.attributes.FID);
+                state.prevFID = graphic.attributes.FID;
                 const locId = graphic.attributes.location_i;
-                blockLyr.renderer = createRenderer(locId);
-                html.set(dojo.byId("textContainer"), locId);
-                chart.dataset = createCatDataset(blockLyrUrl, 'TSEGNAME', 'Tapestry Segement', locId);
-                chart.update();
+                onUpdateLocId(locId);
               }
-              else if (prevGraphic){
-                blockLyr.renderer = createRenderer('total', 0, 250);
-                chart.dataset = createCatDataset(blockLyrUrl, 'TSEGNAME', 'Tapestry Segement');
-                chart.update();
-                prevGraphic = null;
+              else if (state.prevFID){
+                onUpdateLocId('total', 0, 250);
+                state.prevFID = null;
+                if(state.highlight){
+                  state.highlight.remove();
+                }
               }
             })
         });
-      });
+
+        view.popup.highlightEnabled = false;
+        view.popup.on("trigger-action", e => {
+          if(e.action.id === 'pin'){
+            const f = e.target.features[0];
+            onPin(f, locLyrView);
+          }
+        })
+      })
 
       var legend = new Legend({
         view: view,
         layerInfos: [{
           layer: blockLyr,
-          title: "Legend"
+          title: null
         }]
       });
 
@@ -173,10 +262,19 @@
 <body>
   <div id="viewDiv"></div>
   <div id="panel">
-    <div id="textContainer">
-      total
+    <div class="left headerContainer">
+      <button class="btn btn-white btn-disabled icon-ui-map-pin icon-ui-flush" id="pinButton"></button>
+      <p class="headerContent"><span class="avenir-bold">Vists: </span><span id="textContainer">total</span></p>
+      <p class="headerContent headerDivider"><span class="avenir-bold">Data: </span></p>
+      <select class="modifier-class headerContent">
+        <option value="">Menu 1</option>
+        <option value="">Menu 2</option>
+        <option value="">Menu 3</option>
+        <option value="">Menu 4</option>
+      </select>
     </div>
-    <div id="chartContainer">
+
+    <div class="right" id="chartContainer">
   </div>
   
   </div>

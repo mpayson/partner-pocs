@@ -4,18 +4,19 @@ const PERCLABEL = '%';
 const getNotNullWhere = field => `${field} IS NOT NULL`;
 
 const createRenderer = (field, min=0, max=10) => {
-  const opcExpr = `IIf(IsEmpty($feature.${field}), 0, $feature.${field})`
+  const opcExpr = `IIf(IsEmpty($feature.${field}), 0, $feature.${field})`;
+
   return {
-    type: "simple",  // autocasts as new SimpleRenderer()
+    type: "simple",
     symbol: {
-      type: "simple-fill",  // autocasts as new SimpleFillSymbol()
+      type: "simple-fill",
       color: [ 51,51, 204, 0.9 ],
       style: "solid",
-      outline: {  // autocasts as new SimpleLineSymbol()
+      outline: {
         color: "white",
         width: 0
       }
-    },  // autocasts as new SimpleFillSymbol()
+    },
     visualVariables: [{
       type: "opacity",
       valueExpression: opcExpr,
@@ -28,22 +29,18 @@ const createRenderer = (field, min=0, max=10) => {
 
 const createCatDataset = (lyr, field, alias, visitField='total') => {
   const where = getNotNullWhere(visitField);
-  const countField = `${field}_count`;
-  const visitCountField = `${visitField}_count`;
+  const visitSumField = `${visitField}_sum`;
   return {
     "url": lyr,
     "query": {
       "where": where,
       "groupByFieldsForStatistics": field,
       "outStatistics": [{
-        "statisticType": "count",
-        "onStatisticField": field,
-        "outStatisticFieldName": countField
-      }, {
-        "statisticType": "count",
+        "statisticType": "sum",
         "onStatisticField": visitField,
-        "outStatisticFieldName": visitCountField
-      }]
+        "outStatisticFieldName": visitSumField
+      }],
+      "orderByFields": visitSumField + " DESC"
     },
     "mappings": {
       "x": {"field": field, "label": alias},
@@ -54,12 +51,11 @@ const createCatDataset = (lyr, field, alias, visitField='total') => {
 
 const catTransform = (queryResult, dataset) => {
   const features = queryResult.features;
-  const catField = dataset.query.outStatistics[0].outStatisticFieldName;
-  const visitField = dataset.query.outStatistics[1].outStatisticFieldName;
+  const visitField = dataset.query.outStatistics[0].outStatisticFieldName;
   const groupField = dataset.query.groupByFieldsForStatistics;
 
   const total = features.reduce( (p, f) => 
-    p + (f.attributes[catField] * f.attributes[visitField])
+    p += f.attributes[visitField]
   , 0)
 
   let sumOther = 0;
@@ -67,7 +63,7 @@ const catTransform = (queryResult, dataset) => {
   for(let i = 0, len=features.length; i < len; i++){
     const f = features[i];
     const atrs = f.attributes;
-    const perc = (atrs[catField] * atrs[visitField] / total)
+    const perc = atrs[visitField] / total
     if(perc > 0.01){
       atrs[PERCFIELD] = perc.toFixed(2);
       f.attributes = atrs;
