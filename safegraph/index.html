@@ -188,6 +188,7 @@
         onUpdateLocId('total', 0, 250);
         domClass.remove("pinButton", "icon-ui-red");
         domClass.add("pinButton", "btn-disabled");
+        state.pinnedLoc = null;
       }
 
       on(dom.byId("pinButton"), "click", () => {
@@ -266,8 +267,8 @@
       <button class="btn btn-white btn-disabled icon-ui-map-pin icon-ui-flush" id="pinButton"></button>
       <p class="headerContent"><span class="avenir-bold">Vists: </span><span id="textContainer">total</span></p>
       <p class="headerContent headerDivider"><span class="avenir-bold">Data: </span></p>
-      <select class="modifier-class headerContent">
-        <option value="">Menu 1</option>
+      <select class="headerContent">
+        <option value="">Tapestry Segment</option>
         <option value="">Menu 2</option>
         <option value="">Menu 3</option>
         <option value="">Menu 4</option>
