@@ -126,7 +126,7 @@
 
       const blockLyr = new FeatureLayer({
         url: blockLyrUrl,
-        renderer: createRenderer('total', 0, 249)
+        renderer: createRenderer('total', 0, 0.11)
         // outFields: ["*"]
       });
 
@@ -162,7 +162,7 @@
         },        
       });
 
-      const onUpdateLocId = (locId, renderMin=0, renderMax=10) => {
+      const onUpdateLocId = (locId, renderMin=0, renderMax=0.005) => {
         blockLyr.renderer = createRenderer(locId, renderMin, renderMax);
         html.set(dojo.byId("textContainer"), locId);
         chart.dataset = createCatDataset(blockLyrUrl, 'TSEGNAME', 'Tapestry Segment', locId);
@@ -185,7 +185,7 @@
         if(state.highlight){
           state.highlight.remove();
         }
-        onUpdateLocId('total', 0, 250);
+        onUpdateLocId('total', 0, 0.1);
         domClass.remove("pinButton", "icon-ui-red");
         domClass.add("pinButton", "btn-disabled");
         state.pinnedLoc = null;
@@ -228,7 +228,7 @@
                 onUpdateLocId(locId);
               }
               else if (state.prevFID){
-                onUpdateLocId('total', 0, 250);
+                onUpdateLocId('total', 0, 0.1);
                 state.prevFID = null;
                 if(state.highlight){
                   state.highlight.remove();
@@ -265,13 +265,13 @@
   <div id="panel">
     <div class="left headerContainer">
       <button class="btn btn-white btn-disabled icon-ui-map-pin icon-ui-flush" id="pinButton"></button>
-      <p class="headerContent"><span class="avenir-bold">Vists: </span><span id="textContainer">total</span></p>
+      <p class="headerContent"><span class="avenir-bold">Visits: </span><span id="textContainer">total</span></p>
       <p class="headerContent headerDivider"><span class="avenir-bold">Data: </span></p>
       <select class="headerContent">
         <option value="">Tapestry Segment</option>
-        <option value="">Menu 2</option>
-        <option value="">Menu 3</option>
-        <option value="">Menu 4</option>
+        <option value="">Selection...</option>
+        <option value="">In...</option>
+        <option value="">Development!</option>
       </select>
     </div>
 

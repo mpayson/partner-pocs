@@ -1,11 +1,10 @@
 const PERCFIELD = 'perc';
-const PERCLABEL = '%';
+const PERCLABEL = 'Fraction';
 
 const getNotNullWhere = field => `${field} IS NOT NULL`;
 
-const createRenderer = (field, min=0, max=10) => {
-  const opcExpr = `IIf(IsEmpty($feature.${field}), 0, $feature.${field})`;
-
+const createRenderer = (field, min, max) => {
+  const opcExpr = `IIf(IsEmpty($feature.${field}), 0, $feature.${field}/$feature.TOTPOP_CY)`;
   return {
     type: "simple",
     symbol: {
@@ -20,7 +19,7 @@ const createRenderer = (field, min=0, max=10) => {
     visualVariables: [{
       type: "opacity",
       valueExpression: opcExpr,
-      legendOptions: {title: "Visits"},
+      legendOptions: {title: `${field} visits per capita`},
       stops: [{ value: min, opacity: 0 },
             { value: max, opacity: 1 }]
     }]
