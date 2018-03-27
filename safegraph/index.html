@@ -163,6 +163,7 @@
       
       const onUpdatepoiId = poi => {
         state.poi = poi ? poi : CONST.defaultPoi;
+        html.set(dojo.byId("textContainer"), `${state.poi.substring(0, 5)}...`)
         blockLyr.definitionExpression = utils.getDestExp(state.poi);
         chart.dataset = utils.createCatDataset(state.poi, 'TSEGNAME', 'Tapestry Segment');
         chart.update();
@@ -251,7 +252,7 @@
   <div id="panel">
     <div class="left headerContainer">
       <button class="btn btn-white btn-disabled icon-ui-map-pin icon-ui-flush" id="pinButton"></button>
-      <p class="headerContent"><span class="avenir-bold">Visits: </span><span id="textContainer">total</span></p>
+      <p class="headerContent"><span class="avenir-bold">Visits to: </span><span id="textContainer">f1b5d...</span></p>
       <p class="headerContent headerDivider"><span class="avenir-bold">Data: </span></p>
       <select class="headerContent">
         <option value="">Tapestry Segment</option>
