@@ -1,85 +1,118 @@
-const PERCFIELD = 'perc';
-const PERCLABEL = 'Fraction';
-
-const getNotNullWhere = field => `${field} IS NOT NULL`;
-
-const createRenderer = (field, min, max) => {
-  const opcExpr = `IIf(IsEmpty($feature.${field}), 0, $feature.${field}/$feature.TOTPOP_CY)`;
-  return {
+const CONST = {
+  blockLyrUrl: "https://services.arcgis.com/q7zPNeKmTWeh7Aor/arcgis/rest/services/Join%20Features%20to%20SG%20CBG-POI%20Visit%20Counts_20180321_1/FeatureServer/0",
+  poiLyrId: "9b594f846c20472eb7d5e930e826d961",
+  basemap: "gray-vector",
+  visitField: "num_visits",
+  popField: "TOTPOP_CY",
+  poiField: "safegraph_",
+  adrField: "full_addre",
+  defaultPoi: "f1b5d7bb7becd9d059edaeb31072879b9902c306b01b56c2212b47f3b49af779",
+  poiOpcRange: [0, 0.005],
+  chartOverride: {
+    "marks": [
+      {"properties": 
+        {
+          "hover": {"fill": {"value": "#7461a8"}},
+          "update": {"fill": {"value": "#9081bc"}}
+        }
+      }
+    ]
+  },
+  poiRenderer: {
     type: "simple",
     symbol: {
-      type: "simple-fill",
-      color: [ 51,51, 204, 0.9 ],
-      style: "solid",
+      type: "simple-marker",
+      size: 6,
+      color: "#ab3c16",
       outline: {
-        color: "white",
-        width: 0
+        width: 1,
+        color: "white"
       }
-    },
-    visualVariables: [{
-      type: "opacity",
-      valueExpression: opcExpr,
-      legendOptions: {title: `${field} visits per capita`},
-      stops: [{ value: min, opacity: 0 },
-            { value: max, opacity: 1 }]
-    }]
+    }
+  },
+  percentField: 'perc',
+  percentLabel: 'Fraction'
+}
+
+const utils = {
+  getDestExp: poi => `${CONST.poiField} = '${poi}'`,
+  createRenderer: ([min, max]) => {
+    return {
+      type: "simple",
+      symbol: {
+        type: "simple-fill",
+        color: "#005e95",
+        style: "solid",
+        outline: {
+          color: "white",
+          width: 0.5
+        }
+      },
+      visualVariables: [{
+        type: "opacity",
+        field: `${CONST.visitField}`,
+        normalizationField: `${CONST.popField}`,
+        legendOptions: {title: 'visits per capita'},
+        stops: [{ value: min, opacity: 0 },
+              { value: max, opacity: 1 }]
+      }]
+    }
+  },
+  createCatDataset: (poi, field, alias) => {
+    const where = utils.getDestExp(poi);
+    const visitSumField = "sum";
+    return {
+      url: CONST.blockLyrUrl,
+      query: {
+        where: where,
+        groupByFieldsForStatistics: field,
+        outStatistics: [{
+          statisticType: "count",
+          onStatisticField: CONST.visitField,
+          outStatisticFieldName: visitSumField
+        }],
+        orderByFields: visitSumField + " DESC"
+      },
+      mappings: {
+        x: {field: field, label: alias},
+        y: {field: CONST.percentField, label: CONST.percentLabel}
+      }
+    }
+  },
+  catTransform: (queryResult, dataset) => {
+    const features = queryResult.features;
+    const visitField = dataset.query.outStatistics[0].outStatisticFieldName;
+    const groupField = dataset.query.groupByFieldsForStatistics;
+  
+    const total = features.reduce( (p, f) => 
+      p += f.attributes[visitField]
+    , 0)
+  
+    let sumOther = 0;
+    let newFeatures = [];
+    for(let i = 0, len=features.length; i < len; i++){
+      const f = features[i];
+      const atrs = f.attributes;
+      const perc = atrs[visitField] / total
+      if(perc > 0.01){
+        atrs[CONST.percentField] = perc.toFixed(2);
+        f.attributes = atrs;
+        newFeatures.push(f);
+      }
+      else {
+        sumOther += perc;
+      }
+    }
+    if(sumOther){
+      let attr = {};
+      attr[groupField] = "Other";
+      attr[CONST.percentField] = sumOther.toFixed(2);
+      newFeatures.push({attributes: attr})
+    }
+  
+    queryResult.features = newFeatures;
+  
+    return queryResult;
   }
 }
 
-const createCatDataset = (lyr, field, alias, visitField='total') => {
-  const where = getNotNullWhere(visitField);
-  const visitSumField = `${visitField}_sum`;
-  return {
-    "url": lyr,
-    "query": {
-      "where": where,
-      "groupByFieldsForStatistics": field,
-      "outStatistics": [{
-        "statisticType": "sum",
-        "onStatisticField": visitField,
-        "outStatisticFieldName": visitSumField
-      }],
-      "orderByFields": visitSumField + " DESC"
-    },
-    "mappings": {
-      "x": {"field": field, "label": alias},
-      "y": {"field": PERCFIELD, "label": PERCLABEL}
-    }
-  }
-}
-
-const catTransform = (queryResult, dataset) => {
-  const features = queryResult.features;
-  const visitField = dataset.query.outStatistics[0].outStatisticFieldName;
-  const groupField = dataset.query.groupByFieldsForStatistics;
-
-  const total = features.reduce( (p, f) => 
-    p += f.attributes[visitField]
-  , 0)
-
-  let sumOther = 0;
-  let newFeatures = [];
-  for(let i = 0, len=features.length; i < len; i++){
-    const f = features[i];
-    const atrs = f.attributes;
-    const perc = atrs[visitField] / total
-    if(perc > 0.01){
-      atrs[PERCFIELD] = perc.toFixed(2);
-      f.attributes = atrs;
-      newFeatures.push(f);
-    }
-    else {
-      sumOther += perc;
-    }
-  }
-  if(sumOther){
-    let attr = {};
-    attr[groupField] = "Other";
-    attr[PERCFIELD] = sumOther.toFixed(2);
-    newFeatures.push({attributes: attr})
-  }
-
-  queryResult.features = newFeatures;
-
-  return queryResult;
-}
