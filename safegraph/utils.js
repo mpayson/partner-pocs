@@ -12,7 +12,7 @@ const CONST = {
     "marks": [
       {"properties": 
         {
-          "hover": {"fill": {"value": "#7461a8"}},
+          "hover": {"fill": {"value": "#005e95"}},
           "update": {"fill": {"value": "#9081bc"}}
         }
       }
@@ -35,7 +35,13 @@ const CONST = {
 }
 
 const utils = {
-  getDestExp: poi => `${CONST.poiField} = '${poi}'`,
+  getStrIsExp: (field, value) => `${field} = '${value}'`,
+  getPoiExp: poi => utils.getStrIsExp(CONST.poiField, poi),
+  getPoiCatExp: (poi, field, category) => {
+    let poiExp = poi ? utils.getPoiExp(poi) : '';
+    let dataExp = (field && category) ? utils.getStrIsExp(field, category) : '';
+    return (poiExp && dataExp) ? `${poiExp} AND ${dataExp}` : poiExp + dataExp;
+  },
   createRenderer: ([min, max]) => {
     return {
       type: "simple",
@@ -59,7 +65,7 @@ const utils = {
     }
   },
   createCatDataset: (poi, field, alias) => {
-    const where = utils.getDestExp(poi);
+    const where = utils.getPoiExp(poi);
     const visitSumField = "sum";
     return {
       url: CONST.blockLyrUrl,

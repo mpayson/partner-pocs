@@ -96,8 +96,10 @@
     function(Map, MapView, FeatureLayer, Legend, Cedar, html, domClass, dom, on) {
       let state = {
         hitTestPromise: null,
-        poi: null,
+        poi: CONST.defaultPoi,
         isPoiPinned: false,
+        dataField: 'TSEGNAME',
+        dataValue: null,
         highlight: null
       }
 
@@ -112,7 +114,7 @@
       const blockLyr = new FeatureLayer({
         url: CONST.blockLyrUrl,
         outFields: [CONST.poiField, CONST.visitField, CONST.popField],
-        definitionExpression: utils.getDestExp(CONST.defaultPoi),
+        definitionExpression: utils.getPoiExp(CONST.defaultPoi),
         renderer: utils.createRenderer(CONST.poiOpcRange)
       });
 
@@ -163,7 +165,7 @@
       const onUpdatepoiId = poi => {
         state.poi = poi ? poi : CONST.defaultPoi;
         html.set(dojo.byId("textContainer"), `${state.poi.substring(0, 5)}...`)
-        blockLyr.definitionExpression = utils.getDestExp(state.poi);
+        blockLyr.definitionExpression = utils.getPoiCatExp(state.poi, state.dataField, state.dataValue);
         chart.dataset = utils.createCatDataset(state.poi, 'TSEGNAME', 'Tapestry Segment');
         chart.update();
       }
@@ -189,10 +191,26 @@
         domClass.add("pinButton", "btn-disabled");
         onUpdatepoiId(null);
       }
+      
+      const onDataSelected = value => {
+        if(value == state.dataValue){
+          return;
+        }
+        state.dataValue = value;
+        blockLyr.definitionExpression = utils.getPoiCatExp(state.poi, state.dataField, state.dataValue);
+      }
 
       on(dom.byId("pinButton"), "click", () => {
         offPin()
       })
+
+      chart.on('mouseover', (e,d) => {
+        if(state.isChartPinned){
+          return;
+        }
+        const value = d ? d[state.dataField] : null;
+        onDataSelected(value);
+      });
 
       view.whenLayerView(poiLyr).then(poiLyrView => {
         poiLyr.queryExtent().then(res => {
@@ -226,7 +244,6 @@
               }
               else if (state.poi){
                 onUpdatepoiId(null);
-                state.poi = null;
                 if(state.highlight){
                   state.highlight.remove();
                 }
@@ -252,7 +269,8 @@
     <div class="left headerContainer">
       <button class="btn btn-white btn-disabled icon-ui-map-pin icon-ui-flush" id="pinButton"></button>
       <p class="headerContent"><span class="avenir-bold">Visits to: </span><span id="textContainer">f1b5d...</span></p>
-      <p class="headerContent headerDivider"><span class="avenir-bold">Data: </span></p>
+      <button class="btn btn-white btn-disabled icon-ui-chart icon-ui-flush headerDivider" id="chartButton"></button>
+      <p class="headerContent"><span class="avenir-bold">Data: </span></p>
       <select class="headerContent">
         <option value="">Tapestry Segment</option>
         <option value="">Selection...</option>
