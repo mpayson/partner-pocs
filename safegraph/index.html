@@ -108,7 +108,6 @@
       chart.show({
         elementId: "#chartContainer"
       });
-      console.log(chart);
       
       const blockLyr = new FeatureLayer({
         url: CONST.blockLyrUrl,
@@ -233,13 +232,13 @@
                 }
               }
             })
-          view.popup.on("trigger-action", e => {
-            if(e.action.id === 'pin'){
-              const f = e.target.features[0];
-              onPin(f, poiLyrView);
-            }
-          })
         });
+        view.popup.on("trigger-action", e => {
+          if(e.action.id === 'pin'){
+            const f = e.target.features[0];
+            onPin(f, poiLyrView);
+          }
+        })
       })
 
 
