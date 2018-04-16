@@ -22,7 +22,7 @@ const CONST = {
     type: "simple",
     symbol: {
       type: "simple-marker",
-      size: 6,
+      size: "6px",
       color: "#ab3c16",
       outline: {
         width: 1,

@@ -114,14 +114,15 @@
       const blockLyr = new FeatureLayer({
         url: CONST.blockLyrUrl,
         outFields: [CONST.poiField, CONST.visitField, CONST.popField],
-        definitionExpression: utils.getPoiExp(CONST.defaultPoi),
+        // definitionExpression: utils.getPoiExp(CONST.defaultPoi),
+
         renderer: utils.createRenderer(CONST.poiOpcRange)
       });
 
       const pinAction = {
-        title: "Pin",
+        title: "Add User",
         id: "pin",
-        className: "esri-icon-map-pin"
+        className: "esri-icon-group"
       };
 
       const poiLyr = new FeatureLayer({
