@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Load a basic web scene - 4.6</title>
+
+  <link rel="stylesheet" href="https://jsdev.arcgis.com/4.7/esri/css/main.css">
+  <script src="https://jsdev.arcgis.com/4.7/"></script>
+
+  <style>
+    html,
+    body,
+    #viewDiv {
+      padding: 0;
+      margin: 0;
+      height: 100%;
+      width: 100%;
+    }
+  </style>
+
+  <script type="text/javascript" src="points.js"></script>
+
+  <script>
+    require([
+      "esri/views/SceneView",
+      "esri/WebScene",
+      "esri/geometry/Point",
+      "esri/Camera",
+      "dojo/dom",
+      "dojo/domReady!"
+    ], function(
+      SceneView, WebScene, Point, Camera, dom
+    ) {
+
+      defaults = {
+        timeDelay: 5000,
+        tilt: 80,
+        heading: 22.452496945982112
+      }
+      
+      var scene = new WebScene({
+        portalItem: { // autocasts as new PortalItem()
+          id: "3e510d9f52404e1f9ef3827952c22ccf"
+        }
+      });
+
+      var view = new SceneView({
+        map: scene,
+        container: "viewDiv"
+      });
+      
+
+      view.when(() => {
+
+        i = 0;
+
+        loop = setInterval(() => {
+
+          if (i > points.length){
+            clearInterval(loop)
+          }
+
+          p = points[i];
+          g = Point({x: p[0], y: p[1], z: 10, spatialReference: 102100});
+          
+          c = Camera({
+            position: g,
+            tilt: defaults.tilt,
+            heading: defaults.heading,
+          })
+
+          view.goTo(c, {
+            duration: defaults.timeDelay,
+            easing: "linear"
+          });
+
+          i += 1;
+
+        }, defaults.timeDelay)
+
+      })
+
+    });
+  </script>
+
+</head>
+
+<body>
+  <div id="viewDiv">
+  </div>
+</body>
+
+</html>
