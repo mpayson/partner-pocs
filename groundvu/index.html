@@ -15,13 +15,27 @@
   </script>
 
   <style>
-    html,
-    body,
-    #viewDiv {
+    html, body {
       padding: 0;
       margin: 0;
       height: 100%;
       width: 100%;
+    }
+
+    #viewDiv {
+      padding: 0;
+      margin: 0;
+      height: 100%;
+      width: 65%;
+      float: left;
+    }
+    #gvDiv {
+      padding: 0;
+      margin: 0;
+      height: 100%;
+      width: 35%;
+      float: left;
+      word-wrap: break-word;
     }
   </style>
 
@@ -33,13 +47,16 @@
     require([
       "esri/views/MapView",
       "esri/WebMap",
+      "esri/Graphic",
+      "esri/layers/FeatureLayer",
       "esri/widgets/Expand",
       "esri/widgets/BasemapGallery",
       "esri/widgets/LayerList",
       "esri/widgets/Legend",
+      "dojo/dom",
       "dojo/domReady!"
     ], function(
-      MapView, WebMap, Expand, BasemapGallery, LayerList, Legend
+      MapView, WebMap, Graphic, FeatureLayer, Expand, BasemapGallery, LayerList, Legend, dom
     ) {
 
       const getUrl = imgNumber => `http://sftp.ground.vu/StreetScape/0.4/m8glqr5hg/withMap/index.html?scene=/client/Phillips76_39502/ManhattanBeach_4_16_18/webScene.json&image=${imgNumber}&haveMap=false`
@@ -57,11 +74,89 @@
           snapToZoom: false
         }
       });
-      
-      fetch('http://sftp.ground.vu/client/Phillips76_39502/ManhattanBeach_4_16_18/shotData.json')
-        .then(res => res.json)
-        .then(rJson => console.log(rJson))
+
+      const shotLayer = new FeatureLayer({
+        fields: [
+          {
+            name: 'FID',
+            alias: 'FID',
+            type: 'oid'
+          }
+        ],
+        objectIdField: 'FID',
+        geometryType: 'point',
+        spatialReference: {wkid: 4326}
+      })
+
+      const shotSymbol = {
+        type: "simple-marker",
+        size: 6,
+        color: "black",
+        outline: {
+          width: 0.5,
+          color: "white"
+        }
+      }
+
+      const selSymbol = {
+        type: "simple-marker",
+        size: 8,
+        color: "red",
+        outline: {
+          width: 0.5,
+          color: "white"
+        }
+      }
+
+      fetch('/data.json')
+        .then(res => res.json())
+        .then(rJson => {
+          const shotObj = rJson.ShotData
+          return Object.keys(shotObj).map(k => 
+            new Graphic ({
+              geometry: {
+                type: "point",
+                longitude: shotObj[k].longitude,
+                latitude: shotObj[k].latitude,
+
+              },
+              attributes: {
+                'FID': k
+              },
+              symbol: shotSymbol
+            })
+          )
+        })
+        .then(graphics => {
+          shotLayer.source = graphics
+          webmap.layers.add(shotLayer)
+        })
         .catch(err => console.log(err))
+        
+      selGraphic = null;
+      view.when()
+        .then(() => {
+          view.on("click", evt => {
+            const screenPoint = {
+              x: evt.x,
+              y: evt.y
+            }
+            view.hitTest(screenPoint)
+              .then( hit => {
+                const res = hit.results.filter(r => r.graphic.layer === shotLayer)
+                if(res.length){
+                  const graphic = res[0].graphic;
+                  const id = graphic.attributes.FID;
+                  view.graphics.removeAll();
+                  selGraphic = graphic.clone();
+                  selGraphic.symbol = selSymbol;
+                  view.graphics.add(selGraphic);
+                  const url = getUrl(id)
+                  dom.byId('gvDiv').textContent = url
+                }
+              })
+          })
+        })
 
       const legend = new Legend({
         view: view,
@@ -70,8 +165,7 @@
       const legendExpand = new Expand({
         view: view,
         content: legend.domNode,
-        expandIconClass: "esri-icon-feature-layer",
-        expanded: true
+        expandIconClass: "esri-icon-feature-layer"
       })
 
       const layerList = new LayerList({
@@ -96,8 +190,9 @@
       
       const expWidgets = [legendExpand, listExpand, bgExpand]
 
-      let activeExpand = legendExpand;
+      let activeExpand = null;
       const setActiveExpand = (nV, oV, expProp, expObj) => {
+        activeExpand = activeExpand ? activeExpand : expObj
         if(nV === true && expObj !== activeExpand){
           activeExpand.expanded = false
           activeExpand = expObj
@@ -117,6 +212,7 @@
 
 <body>
   <div id="viewDiv"></div>
+  <div id="gvDiv">HELLO WORLD</div>
 </body>
 
 </html>
