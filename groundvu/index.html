@@ -3,10 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
-  <title>Load a basic web scene - 4.6</title>
+  <title>GroundVu POC</title>
 
-  <link rel="stylesheet" href="https://jsdev.arcgis.com/4.7/esri/css/main.css">
-  <script src="https://jsdev.arcgis.com/4.7/"></script>
+  <script>
+    var dojoConfig = {
+      has: {
+        // WebGL (BETA) is cool, let's use by default
+        "esri-featurelayer-webgl": 1
+      }
+    };
+  </script>
 
   <style>
     html,
@@ -19,76 +25,98 @@
     }
   </style>
 
-  <script type="text/javascript" src="points.js"></script>
+  <link rel="stylesheet" href="https://js.arcgis.com/4.7/esri/css/main.css">
+
+  <script src="https://js.arcgis.com/4.7/"></script>
 
   <script>
     require([
-      "esri/views/SceneView",
-      "esri/WebScene",
-      "esri/geometry/Point",
-      "esri/Camera",
-      "dojo/dom",
+      "esri/views/MapView",
+      "esri/WebMap",
+      "esri/widgets/Expand",
+      "esri/widgets/BasemapGallery",
+      "esri/widgets/LayerList",
+      "esri/widgets/Legend",
       "dojo/domReady!"
     ], function(
-      SceneView, WebScene, Point, Camera, dom
+      MapView, WebMap, Expand, BasemapGallery, LayerList, Legend
     ) {
 
-      defaults = {
-        timeDelay: 5000,
-        tilt: 80,
-        heading: 22.452496945982112
-      }
-      
-      var scene = new WebScene({
-        portalItem: { // autocasts as new PortalItem()
-          id: "3e510d9f52404e1f9ef3827952c22ccf"
+      const getUrl = imgNumber => `http://sftp.ground.vu/StreetScape/0.4/m8glqr5hg/withMap/index.html?scene=/client/Phillips76_39502/ManhattanBeach_4_16_18/webScene.json&image=${imgNumber}&haveMap=false`
+
+      const webmap = new WebMap({
+        portalItem: {
+          id: "ea2e38eba7324b7890fcc7ee2c7654a8"
         }
       });
 
-      var view = new SceneView({
-        map: scene,
-        container: "viewDiv"
+      const view = new MapView({
+        map: webmap,
+        container: "viewDiv",
+        constraints: {
+          snapToZoom: false
+        }
       });
       
+      fetch('http://sftp.ground.vu/client/Phillips76_39502/ManhattanBeach_4_16_18/shotData.json')
+        .then(res => res.json)
+        .then(rJson => console.log(rJson))
+        .catch(err => console.log(err))
 
-      view.when(() => {
-
-        i = 0;
-
-        loop = setInterval(() => {
-
-          if (i > points.length){
-            clearInterval(loop)
-          }
-
-          p = points[i];
-          g = Point({x: p[0], y: p[1], z: 10, spatialReference: 102100});
-          
-          c = Camera({
-            position: g,
-            tilt: defaults.tilt,
-            heading: defaults.heading,
-          })
-
-          view.goTo(c, {
-            duration: defaults.timeDelay,
-            easing: "linear"
-          });
-
-          i += 1;
-
-        }, defaults.timeDelay)
-
+      const legend = new Legend({
+        view: view,
+        container: document.createElement("div")
       })
+      const legendExpand = new Expand({
+        view: view,
+        content: legend.domNode,
+        expandIconClass: "esri-icon-feature-layer",
+        expanded: true
+      })
+
+      const layerList = new LayerList({
+        view: view,
+        container: document.createElement("div")
+      })
+      const listExpand = new Expand({
+        view: view,
+        content: layerList.domNode,
+        expandIconClass: "esri-icon-layer-list"
+      })
+      
+      const basemapGallery = new BasemapGallery({
+        view: view,
+        container: document.createElement("div")
+      })
+      const bgExpand = new Expand({
+        view: view,
+        content: basemapGallery.domNode,
+        expandIconClass: "esri-icon-basemap"
+      })
+      
+      const expWidgets = [legendExpand, listExpand, bgExpand]
+
+      let activeExpand = legendExpand;
+      const setActiveExpand = (nV, oV, expProp, expObj) => {
+        if(nV === true && expObj !== activeExpand){
+          activeExpand.expanded = false
+          activeExpand = expObj
+        }
+      }
+
+      expWidgets.forEach(w => {
+        w.watch("expanded", setActiveExpand)
+      })
+
+      view.ui.add(expWidgets, "top-right")
+
 
     });
   </script>
-
 </head>
 
 <body>
-  <div id="viewDiv">
-  </div>
+  <div id="viewDiv"></div>
 </body>
 
 </html>
