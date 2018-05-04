@@ -9,4 +9,4 @@
 * **GroundVu** - Street exploration with 360º imagery and extracted, high resolution features. [code](/grounvu) & [live](http://sftp.ground.vu/phillips66/)
 
 ## Indoor Reality
-![Indoor Reality Screenshot](/assets/IndoorRealityScreenshot.png)
+![Indoor Reality Screenshot](/images/IndoorRealityScreenshot.png)
