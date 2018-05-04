@@ -26,14 +26,14 @@
       padding: 0;
       margin: 0;
       height: 100%;
-      width: 65%;
+      width: 60%;
       float: left;
     }
     #gvDiv {
       padding: 0;
       margin: 0;
       height: 100%;
-      width: 35%;
+      width: 40%;
       float: left;
       word-wrap: break-word;
     }
@@ -53,17 +53,20 @@
       "esri/widgets/BasemapGallery",
       "esri/widgets/LayerList",
       "esri/widgets/Legend",
+      "dojo/dom-attr",
       "dojo/dom",
       "dojo/domReady!"
     ], function(
-      MapView, WebMap, Graphic, FeatureLayer, Expand, BasemapGallery, LayerList, Legend, dom
+      MapView, WebMap, Graphic, FeatureLayer, Expand, BasemapGallery, LayerList, Legend, domAttr, dom
     ) {
-
-      const getUrl = imgNumber => `http://sftp.ground.vu/StreetScape/0.4/m8glqr5hg/withMap/index.html?scene=/client/Phillips76_39502/ManhattanBeach_4_16_18/webScene.json&image=${imgNumber}&haveMap=false`
-
+      
+      // URL Template for 360 imagery
+      const getUrl = imgNumber => `/StreetScape/0.4/m8glqr5hg/withMap/index.html?scene=/client/Phillips76_39502/ManhattanBeach_4_16_18/webScene.json&image=${imgNumber}&haveMap=false`;
+      
+      // Load webmap and view
       const webmap = new WebMap({
         portalItem: {
-          id: "ea2e38eba7324b7890fcc7ee2c7654a8"
+          id: "e19a81980c7045329131d398945d1157"
         }
       });
 
@@ -74,20 +77,20 @@
           snapToZoom: false
         }
       });
-
+      
+      // Layer schema for image shots so consistent
       const shotLayer = new FeatureLayer({
-        fields: [
-          {
-            name: 'FID',
-            alias: 'FID',
-            type: 'oid'
-          }
-        ],
+        fields: [{
+          name: 'FID',
+          alias: 'FID',
+          type: 'oid'
+        }],
         objectIdField: 'FID',
         geometryType: 'point',
         spatialReference: {wkid: 4326}
-      })
-
+      });
+      
+      // Symbol for all image shots
       const shotSymbol = {
         type: "simple-marker",
         size: 6,
@@ -96,21 +99,25 @@
           width: 0.5,
           color: "white"
         }
-      }
-
+      };
+      
+      //Symbol for selected image shot
       const selSymbol = {
         type: "simple-marker",
-        size: 8,
+        size: 10,
         color: "red",
         outline: {
-          width: 0.5,
-          color: "white"
+          width: 1.5,
+          color: [255, 255, 0, 1]
         }
-      }
-
-      fetch('/data.json')
+      };
+      selGraphic = null;
+      
+      // Fetch json data to build graphics layer
+      fetch('/client/Phillips76_39502/ManhattanBeach_4_16_18/shotData.json')
         .then(res => res.json())
         .then(rJson => {
+          // build graphics from response
           const shotObj = rJson.ShotData
           return Object.keys(shotObj).map(k => 
             new Graphic ({
@@ -128,12 +135,16 @@
           )
         })
         .then(graphics => {
+          // add graphics to layer and set initiative selected graphic
           shotLayer.source = graphics
           webmap.layers.add(shotLayer)
+          selGraphic = graphics.filter(f => f.attributes.FID === '001400')[0].clone()
+          selGraphic.symbol = selSymbol
+          view.graphics.add(selGraphic)
         })
-        .catch(err => console.log(err))
+        .catch(err => console.log(err));
         
-      selGraphic = null;
+      // add a click listener to open iframe when graphic selected
       view.when()
         .then(() => {
           view.on("click", evt => {
@@ -151,13 +162,14 @@
                   selGraphic = graphic.clone();
                   selGraphic.symbol = selSymbol;
                   view.graphics.add(selGraphic);
-                  const url = getUrl(id)
-                  dom.byId('gvDiv').textContent = url
+                  const url = getUrl(id);
+                  domAttr.set('iframe', 'src', url);
                 }
               })
           })
         })
-
+        
+      // configure a few widgets
       const legend = new Legend({
         view: view,
         container: document.createElement("div")
@@ -189,7 +201,8 @@
       })
       
       const expWidgets = [legendExpand, listExpand, bgExpand]
-
+      
+      // only let one widget be active at a time
       let activeExpand = null;
       const setActiveExpand = (nV, oV, expProp, expObj) => {
         activeExpand = activeExpand ? activeExpand : expObj
@@ -198,7 +211,6 @@
           activeExpand = expObj
         }
       }
-
       expWidgets.forEach(w => {
         w.watch("expanded", setActiveExpand)
       })
@@ -212,7 +224,10 @@
 
 <body>
   <div id="viewDiv"></div>
-  <div id="gvDiv">HELLO WORLD</div>
+  <div id="gvDiv">
+    <iframe id="iframe" style="width:100%; height:100%; border:none;"  src="/StreetScape/0.4/m8glqr5hg/withMap/index.html?scene=/client/Phillips76_39502/ManhattanBeach_4_16_18/webScene.json&image=001400&haveMap=false"/>
+  </div>
+  
 </body>
 
 </html>
