@@ -2,6 +2,12 @@
 
 > Esri partners do awesome work, here are some joint POCs
 
+## About
+
+These demoes showcase joint work between the Esri Startup Team and partners in the [Startup Program](https://developers.arcgis.com/startups/). Want to collaborate? Would **[love](startups@esri.com)** to hear from you.
+
+## POCs
+
 <details>
   <summary> Contents
   </summary>
