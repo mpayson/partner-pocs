@@ -118,6 +118,7 @@
 
         renderer: utils.createRenderer(CONST.poiOpcRange)
       });
+      blockLyr.definitionExpression = utils.getPoiCatExp(state.poi, state.dataField, state.dataValue);
 
       const pinAction = {
         title: "Pin",
