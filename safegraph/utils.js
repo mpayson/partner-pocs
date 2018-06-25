@@ -65,8 +65,6 @@ const utils = {
     }
   },
   createCatDataset: (poi, field, alias) => {
-    console.log("HERE")
-    console.log(poi);
     const where = utils.getPoiExp(poi);
     const visitSumField = "sum";
     return {
