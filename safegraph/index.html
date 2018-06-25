@@ -164,11 +164,15 @@
       view.ui.add(legend, "top-right");
       
       const onUpdatepoiId = poi => {
-        state.poi = poi ? poi : CONST.defaultPoi;
+        let newpoi = poi ? poi : CONST.defaultPoi;
+        if(newpoi === state.poi){
+          return;
+        }
+        state.poi = newpoi;
         html.set(dojo.byId("textContainer"), `${state.poi.substring(0, 5)}...`)
         blockLyr.definitionExpression = utils.getPoiCatExp(state.poi, state.dataField, state.dataValue);
         chart.dataset = utils.createCatDataset(state.poi, 'TSEGNAME', 'Tapestry Segment');
-        chart.update();
+        chart.update(); 
       }
 
       const onPin = (f, lyrView) => {
