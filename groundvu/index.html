@@ -62,7 +62,8 @@
       
       // URL Template for 360 imagery
       const getUrl = imgNumber => `/StreetScape/0.4/m8glqr5hg/withMap/index.html?scene=/client/Phillips76_39502/ManhattanBeach_4_16_18/webScene.json&image=${imgNumber}&haveMap=false`;
-      
+      const jsonUrl = '/client/Phillips76_39502/ManhattanBeach_4_16_18/shotData.json';
+
       // Load webmap and view
       const webmap = new WebMap({
         portalItem: {
@@ -114,7 +115,7 @@
       selGraphic = null;
       
       // Fetch json data to build graphics layer
-      fetch('/client/Phillips76_39502/ManhattanBeach_4_16_18/shotData.json')
+      fetch(jsonUrl)
         .then(res => res.json())
         .then(rJson => {
           // build graphics from response
